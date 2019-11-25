@@ -3,11 +3,305 @@
 
 
 import pygame
+import os
 import random
+import socket
 import tkinter
 import sys
 from tkinter import messagebox
 
+##############  HW 8 Helper functions   #############
+
+#function takes in user's password and challenge received from server
+#returns the chunks of ASCII values needed for MD5 hash
+def createBlock(password,challenge):
+
+    #concatenate the password and challenge 
+    message = password+challenge
+    block = message + "1"
+
+    #add the zeros to create 509 character block
+    while len(block) < 509:
+        block += "0"
+    
+    #add the last three digits needed to complete 512 character block
+    length = len(str(len(message)))
+    block += "0" * (3-length) + str(len(message))
+
+    M = []
+
+    #find ASCII value of each element in 32 character blocks
+    #store sum in list
+    for i in range(0,len(block),32):
+        sum = 0
+        for k in range(i,i+32):
+            sum += ord(block[k])
+        M.append(sum)
+    
+    return M
+
+#function returns the lists required for MD5 hash
+def hashLists():
+
+    s = [0]*64
+    s[0:16] = [7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22, 7, 12, 17, 22]
+    s[16:32] = [5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20, 5, 9, 14, 20]
+    s[32:48] = [4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23, 4, 11, 16, 23]
+    s[48:64] = [6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21, 6, 10, 15, 21]
+    
+    K = [0] * 64
+    K[0:4] = [0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee]
+    K[4:8] = [0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501]
+    K[8:12] = [0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be]
+    K[12:16] = [0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821]
+    K[16:20] = [0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa]
+    K[20:24] = [0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8]
+    K[24:28] = [0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed]
+    K[28:32] = [0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a]
+    K[32:36] = [0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c]
+    K[36:40] = [0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70]
+    K[40:44] = [0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05]
+    K[44:48] = [0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665]
+    K[48:52] = [0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039]
+    K[52:56] = [0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1]
+    K[56:60] = [0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1]
+    K[60:64] = [0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391]
+
+    return s,K
+
+#function performs the necessary calculation as part of the Hash function
+def leftrotate(x,c):
+    return ((x << c) & 0xFFFFFFFF | (x >> (32 - c) & 0x7FFFFFFF >> (32-c)))
+
+#function takes in user's password and challenge received from server
+#returns the MD5 (message digest) required to login into server 
+def hashFunction(password,challenge):
+
+    #create the chunks and lists needed for hash
+    M = createBlock(password,challenge)
+    s,K = hashLists()
+
+    for i in range(16):
+
+        ##Initialize Variables
+        a0 = 0x67452301
+        b0 = 0xefcdab89
+        c0 = 0x98badcfe
+        d0 = 0x10325476
+        A = a0
+        B = b0
+        C = c0
+        D = d0
+
+        for i in range(64):
+            if 0 <= i <= 15:
+                F = (B & C) | ((~B) & D)
+                F = F & 0xFFFFFFFF
+                g = i
+            elif 16 <= i <= 31:
+                F = (D & B) | ((~D) & C)
+                F = F & 0xFFFFFFFF
+                g = (5 * i + 1) % 16
+            elif 32<= i <= 47:
+                F = B ^ C ^ D
+                F = F & 0xFFFFFFFF
+                g = (3 * i + 5) % 16
+            elif 48 <= i <= 63:
+                F = C ^ (B | (~D))
+                F = F & 0xFFFFFFFF
+                g = (7 * i) % 16
+
+            dTemp = D
+            D = C
+            C = B
+            B = B + leftrotate((A + F + K[i] + M[g]), s[i])
+            B = B & 0xFFFFFFFF
+            A = dTemp
+    
+        a0 = (a0 + A) & 0xFFFFFFFF
+        b0 = (b0 + B) & 0xFFFFFFFF
+        c0 = (c0 + C) & 0xFFFFFFFF
+        d0 = (d0 + D) & 0xFFFFFFFF
+
+    result = str(a0) + str(b0) + str(c0) + str(d0)
+    return result 
+
+#function creates a socket and connects it to given IP address / Port Number
+#returns the created socket 
+def StartConnection (IPAddress, PortNumber):
+        s = socket(AF_INET,SOCK_STREAM)
+        s.connect((IPAddress,PortNumber))
+        
+        return s
+
+#function takes a socket, username and password and logs in to chat server
+#Returns true if login successful / False otherwise
+def login (s, username, password):
+
+    #Send initial login command and receive reply
+    s.send(bytes("LOGIN "+username+"\n","utf-8"))
+    data = str(s.recv(512),"utf-8")
+    data = data.strip()
+
+    #ensure that username exists
+    if data == "USER NOT FOUND":
+        return False
+
+    if len(data.split()) < 3:
+        return False
+
+    #extract challenge from reply and use challenge in hash function
+    challenge = data.split()[2]
+    messageDigest = hashFunction(password,challenge)
+
+    #Send finalized login command with message Digest
+    s.send(bytes("LOGIN "+username+" "+messageDigest+"\n","utf-8"))
+    bdata = str(s.recv(512),"utf-8")
+
+    if "WRONG PASSWORD!" in bdata:
+        return False
+
+    return True
+
+#function to receive data from the server and split data into a list
+def getData(s):
+    data = str(s.recv(512),"utf-8")
+    data = data.split("@")
+    size = int(data[1])
+    data = "@".join(data)
+    
+    if size > len(data):
+       data += str(s.recv(size-len(data)),"utf-8")
+    
+    Data = data.split("@")
+    return Data
+
+#function returns the list of active users on chat server
+def getUsers(s):
+
+    s.send(b"@users")
+    userList = getData(s)[4:]
+    
+    return userList
+
+#function returns the list of friends on chat server
+def getFriends(s):
+
+    s.send(b"@friends")
+    friendList = getData(s)[4:]
+    
+    return friendList
+
+#function returns the list of friend requests received
+def getRequests(s):
+
+    s.send(b"@rxrqst")
+
+    requestData = getData(s)[3:]
+    
+    return requestData
+
+#function takes username of friend and sends a friend request to that user
+def sendFriendRequest(s, friend):
+    
+    if friend not in getUsers(s):
+        return False
+
+    #caclulate total size of the command string
+    #and send the request command to server
+    size = 22 + len(friend)
+    length = len(str(size))
+    message = "@"+"0" * (5 - length)+str(size)+"@request@friend@"+friend
+    
+    s.send(bytes(message,"utf-8"))
+    reply = str(s.recv(512),"utf-8")
+    if "ok" in reply:
+        return True
+    return False
+
+#function takes username of friend and accepts a friend request from that user
+def acceptFriendRequest(s, friend):
+
+    if friend not in getUsers(s):
+        return False
+    if friend not in getRequests(s):
+        return False
+    
+    #caclulate total size of the command string
+    #and send the accept command to server
+    size = 21 + len(friend)
+    length = len(str(size))
+    message = "@"+"0" * (5 - length)+str(size)+"@accept@friend@"+friend
+    s.send(bytes(message,"utf-8"))
+    reply = str(s.recv(512),"utf-8")
+    if "ok" in reply:
+        return True
+    return False
+
+#function takes friend's username and a message and sends it to them 
+def sendMessage(s, friend, message):
+    
+    #caclulate total size of the command string
+    #and send the send message command to server
+    size = 16 + len(friend) + len(message)
+    length = len(str(size))
+    command = "@" + "0" * (5 - length) + str(size) 
+    command += "@sendmsg@" + friend + "@" + message
+    s.send(bytes(command,"utf-8"))
+    reply = str(s.recv(512),"utf-8")
+
+    if "message sent" in reply:
+        return True
+    return False
+
+#function returns lists of tuples containing messages and files
+#saves files that are received to local directory 
+def getMail(s):
+
+    s.send(b"@rxmsg")
+
+    data = getData(s)
+    i = 3
+    
+    #parse the reply from server using the keywords msg and file
+    #append usernames and messages or usernames and filenames to tuples
+    #save any files received 
+    messages = []
+    files = []
+    while i < len(data):
+        if data[i] == "msg":
+            messages.append((data[i+1],data[i+2]))
+            i += 3
+        elif data[i] == "file":
+            files.append((data[i+1],data[i+2]))
+            filoi = open(data[i+2],"a")
+            filoi.write(data[i+3])
+            filoi.close
+            i += 4
+
+    return (messages,files)
+#function takes friend's username and a file and sends it to them 
+def sendFile(s, friend, filename):
+
+    #check for existence of file
+    if not os.path.isfile(filename):
+        return False
+    
+    #open file for reading and copy its content into string
+    #send the string along with the sendfile command
+    file = open(filename)
+    data = file.read()
+    size = 18 + len(friend) + len(filename) + len(data)
+    length = len(str(size))
+    message = "@" + "0" * (5 - length) + str(size) 
+    message += "@sendfile@" + friend + "@" + filename + "@" + data
+    
+    s.send(bytes(message,"utf-8"))
+    reply = str(s.recv(512),"utf-8")
+
+    if "file sent" in reply:
+        return True
+    return False
 
 ###Credits (Sources for Sprites)
 
