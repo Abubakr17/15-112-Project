@@ -796,7 +796,28 @@ def checkButtons(keys):
             else:
                 block = False
         
-        if not block:
+        jumpBlocked = {}
+
+        for platoi in game.platforms:
+            jumpBlocked[platoi] = False
+        
+        for platoi in game.platforms:
+            if player1.isFalling and player1.x + 155>= platoi.x\
+            and not game.onPlatform and player1.y+160>platoi.y+20\
+            and player1.x<=platoi.x+230:
+                jumpBlocked[platoi] = True
+        
+        if game.platforms == []:
+            jumpBlock = False
+
+        if jumpBlocked:
+            value2 = jumpBlocked.values()
+            if True in value2:
+                jumpBlock = True
+            else:
+                jumpBlock = False
+            
+        if not block and not jumpBlock:
             game.onScreenX += player1.rightvelocity
         
         if game.onScreenX <= game.startScrollingPosX:
@@ -1372,7 +1393,7 @@ class gameRequestWindow():
 
                     self.root.destroy()
 
-        self.list2.after(70,lambda : self.checkRequests(socket))
+        self.list2.after(50,lambda : self.checkRequests(socket))
 
 #Create a socket and connect to server       
 #Display the multiplayer login window
