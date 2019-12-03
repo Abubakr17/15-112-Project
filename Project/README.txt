@@ -10,7 +10,7 @@ https://cs.hofstra.edu/docs/pages/guides/InstallingPygame.html
 
 Note: To play the multiplayer mode you will need a valid account (Andrew ID) registered on the server (86.36.46.10) 
 
-Note: Game is optimized for Mac. If you are using Windows, reduce the frame rate by changing the value of game.clock.tick()
+Note: Game is optimized for Mac. If you are using Windows, re-adjust the player's velocity by changing the value of rightvelocity and leftvelocity in the character class.
 
 To play the single player mode run SinglePlayer.py
 
