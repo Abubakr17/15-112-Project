@@ -1268,11 +1268,15 @@ class gameRequestWindow():
 
     #refresh the friends and requests lists from the server
     def updateLists(self,socket):
+        
         currentFriend = list(self.list2.get(0,END))
         currentDisplayedRequests = list(self.list3.get(0,END))
         
         friends = getFriends(socket)
-        
+
+        while "msg" in friends:
+            friends = getFriends(socket)
+            
         #compare current friend list with new version
         #refresh if there is a change in the list
         if currentFriend != friends:
