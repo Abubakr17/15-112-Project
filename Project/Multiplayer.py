@@ -490,7 +490,7 @@ def drawDiamonds():
                     game.diamonds.remove(diamond1)
 
         if player1.goingLeft or player1.direction == 0:
-            if abs(diamond1.x + 41 - player1.x) <= 30 or abs(diamond1.x - player1.x)<=45:
+            if abs(diamond1.x + 41 - player1.x) <= 45 or abs(diamond1.x - player1.x)<=45:
                 if diamond1.y + 20 >= player1.y and diamond1.y + 41 <= player1.y + 160:
                     diamond1.collected = True
                     game.score += 1

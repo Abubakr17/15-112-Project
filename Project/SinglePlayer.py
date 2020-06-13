@@ -53,7 +53,7 @@ class character():
         self.isJumping = False
         self.isFalling = False
         self.walkcount = 0
-        self.lives = 3
+        self.lives = 50
         self.walkRight = characters.character1[0]
         self.walkLeft = [pygame.transform.flip(x, True, False) for x \
         in self.walkRight]
@@ -595,14 +595,14 @@ def drawDiamonds():
 
         #Handle the event of collecting a diamond
         if player1.goingRight or player1.direction == 1:
-            if abs(diamond1.x - player1.x) <= 45 or abs(diamond1.x - player1.x - 90) <=45:
+            if abs(diamond1.x - player1.x) <= 50 or abs(diamond1.x - player1.x - 90) <=50:
                 if diamond1.y + 20 >= player1.y and diamond1.y + 41 <= player1.y + 160:
                     diamond1.collected = True
                     game.score += 1
                     game.diamonds.remove(diamond1)
 
         if player1.goingLeft or player1.direction == 0:
-            if abs(diamond1.x + 41 - player1.x) <= 30 or abs(diamond1.x - player1.x)<=45:
+            if abs(diamond1.x + 41 - player1.x) <= 45 or abs(diamond1.x - player1.x)<=45:
                 if diamond1.y + 20 >= player1.y and diamond1.y + 41 <= player1.y + 160:
                     diamond1.collected = True
                     game.score += 1
